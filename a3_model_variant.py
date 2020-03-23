@@ -8,8 +8,10 @@ from torch import nn
 from torch import optim
 import random
 from torch.autograd import Variable
-import torch.nn.functional as F
+from sklearn.metrics import recall_score
 from sklearn.metrics import classification_report
+from sklearn.metrics import precision_score
+import matplotlib.pyplot as plt
 # Whatever other imports you need
 
 # You can implement classes and helper functions here too.
@@ -79,68 +81,77 @@ if __name__ == "__main__":
         activation_fn = None
         
     batch_size = args.batch
+    xs= [20,30,40,50,55,60,70,80,90,100]
+    recalls = []
+    precisions = []
+
+    for size in xs:
+        print("Processing; size of the Hidden Layer:", size)
     
+        class MyNet(nn.Module):
     
-    class MyNet(nn.Module):
-    
-        def __init__(self, input_size, hidden_size, activation_fn):
-            super(MyNet,self).__init__()
-            if hidden_size == 0:
-                self.fc1 = nn.Linear(input_size, 1)
-            else:
-                self.fc1 = nn.Linear(input_size, hidden_size)
-            if activation_fn:
-                self.nonlinear = activation_fn()
-            if hidden_size != 0:
-                self.fc2 = nn.Linear(hidden_size, 1)
-            self.sigmoid = nn.Sigmoid()
-        
-    
-        def forward(self, x):
-                x = self.fc1(x)
+            def __init__(self, input_size, size, activation_fn):
+                super(MyNet,self).__init__()
+                if hidden_size == 0:
+                    self.fc1 = nn.Linear(input_size, 1)
+                else:
+                    self.fc1 = nn.Linear(input_size, hidden_size)
                 if activation_fn:
-                    x = self.nonlinear(x)
+                    self.nonlinear = activation_fn()
                 if hidden_size != 0:
-                    x = self.fc2(x)
-                x = self.sigmoid(x)
-                return x
-            
-            
-            
-    net = MyNet(width*2, hidden_size, activation_fn)
-    
-            
-    optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.5)
-    criterion = nn.BCELoss()
+                    self.fc2 = nn.Linear(size, 1)
+                self.sigmoid = nn.Sigmoid()
         
     
-    for e in range(args.epoch):
+            def forward(self, x):
+                    x = self.fc1(x)
+                    if activation_fn:
+                        x = self.nonlinear(x)
+                    if hidden_size != 0:
+                        x = self.fc2(x)
+                    x = self.sigmoid(x)
+                    return x
+            
+            
+            
+        net = MyNet(width*2, hidden_size, activation_fn)
     
-        batch_data = sampler(data, batch_size, train=True)
-        loss_acc = 0
-        for inputs, label in batch_data:
-            optimizer.zero_grad()
-            out = net(inputs)
-            loss = criterion(out, label)
-            loss_acc += loss
-            loss.backward()
-            optimizer.step()
-        if e%50 == 0:
-            print("EPOCH:", e)
-            print(loss_acc.item()/len(batch_data))
+            
+        optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.5)
+        criterion = nn.BCELoss()
+
+        for e in range(args.epoch):
     
-    print("Training Complete")
-    
-    print("Testing")
+            batch_data = sampler(data, batch_size, train=True)
+            loss_acc = 0
+            for inputs, label in batch_data:
+                optimizer.zero_grad()
+                out = net(inputs)
+                loss = criterion(out, label)
+                loss_acc += loss
+                loss.backward()
+                optimizer.step()
         
-    test_samples = sampler(data, 100, train=False)
-    ins = [inputs for inputs, label in test_samples]
-    labels = [label for inputs, label in test_samples]
+        test_samples = sampler(data, 100, train=False)
+        ins = [inputs for inputs, label in test_samples]
+        labels = [label for inputs, label in test_samples]
     
-    preds = []
-    for inputs in ins:
-        preds.append(pred(inputs))
-    print(classification_report(labels, preds, target_names=["SAME","NOT-SAME"]))
+        preds = []
+        for inputs in ins:
+            preds.append(pred(inputs))
+        recalls.append(recall_score(labels,preds))
+        precisions.append(precision_score(labels,preds))
+    print(recalls) 
+    print(precisions)
+    plot_data = pd.DataFrame({"x":xs, "rec": recalls, "pre": precisions})
+    plt.plot( 'x', 'rec', data=plot_data, marker='o', markerfacecolor='blue', markersize=12, color='skyblue',linewidth=4,label="recalls")
+    plt.plot( 'x', 'pre', data=plot_data, marker='', color='olive', linewidth=2, label="precisions")
+    plt.legend(('Recalls', 'Precisions'),
+           loc='upper right')
+    plt.savefig('trends.png')
+
+    
+
 
 
     
